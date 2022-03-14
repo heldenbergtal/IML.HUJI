@@ -53,7 +53,7 @@ class UnivariateGaussian:
         estimator is either biased or unbiased). Then sets `self.fitted_` attribute to `True`
         """
         self.mu_ = np.mean(X)
-        self.var_ = X.var(ddof=1)
+        self.var_ = X.var(ddof=0) if self.biased_ else X.var(ddof=1)
 
         self.fitted_ = True
         return self
@@ -150,9 +150,7 @@ class MultivariateGaussian:
         """
 
         self.mu_ = np.mean(X, axis=0)
-        m = X.shape[0]
-        transposed = np.transpose(X - self.mu_)
-        self.cov_ = (1 / m - 1) * (np.sum((X - self.mu_) * transposed))
+        self.cov_ = np.cov(np.transpose(X), bias=False)
 
         self.fitted_ = True
         return self
@@ -201,7 +199,13 @@ class MultivariateGaussian:
         log_likelihood: float
             log-likelihood calculated over all input data and under given parameters of Gaussian
         """
+
         d = X.shape[1]
-        transposed = np.transpose(X - mu)
-        return np.log(1 / (((2 * np.pi) ** d) * np.linalg.det(cov))) - 0.5 * np.sum(
-            transposed * np.linalg.inv(cov) * (X - mu))
+        m = X.shape[0]
+        det_cov = np.linalg.det(cov)
+        inv_cov = np.linalg.inv(cov)
+        sum_on_rows = 0
+        for i in X:
+            sum_on_rows += np.dot(np.dot((i - mu).transpose(), inv_cov), (i - mu))
+        sum_on_rows *= 0.5
+        return -m * d / 2 * np.log(1 / (2 * np.pi)) - (m / 2) * np.log(det_cov) - sum_on_rows
