@@ -78,8 +78,10 @@ class UnivariateGaussian:
         """
 
         if not self.fitted_:
-            raise ValueError("Estimator must first be fitted before calling `pdf` function")
-        pdf = 1 / ((self.var_ * 2 * np.pi) ** 0.5) * np.e ** (-0.5 * ((X - self.mu_) ** 2 / self.var_))
+            raise ValueError(
+                "Estimator must first be fitted before calling `pdf` function")
+        pdf = 1 / ((self.var_ * 2 * np.pi) ** 0.5) * np.e ** (
+                    -0.5 * ((X - self.mu_) ** 2 / self.var_))
         return pdf
 
     @staticmethod
@@ -101,7 +103,8 @@ class UnivariateGaussian:
         log_likelihood: float
             log-likelihood calculated
         """
-        return (X.size / 2) * (np.log(1 / (sigma * 2 * np.pi))) - (1 / 2 * sigma) * np.sum((X - mu) ** 2)
+        return (X.size / 2) * (np.log(1 / (sigma * 2 * np.pi))) - (
+                    1 / 2 * sigma) * np.sum((X - mu) ** 2)
 
 
 class MultivariateGaussian:
@@ -174,14 +177,16 @@ class MultivariateGaussian:
         ValueError: In case function was called prior fitting the model
         """
         if not self.fitted_:
-            raise ValueError("Estimator must first be fitted before calling `pdf` function")
+            raise ValueError(
+                "Estimator must first be fitted before calling `pdf` function")
         d = X.shape[1]
         transposed = np.transpose(X - self.mu_)
         return (1 / (((2 * np.pi) ** d) * np.linalg.det(self.cov_))) * np.exp(
             -0.5 * transposed * np.linalg.inv(self.cov_) * (X - self.mu_))
 
     @staticmethod
-    def log_likelihood(mu: np.ndarray, cov: np.ndarray, X: np.ndarray) -> float:
+    def log_likelihood(mu: np.ndarray, cov: np.ndarray,
+                       X: np.ndarray) -> float:
         """
         Calculate the log-likelihood of the data under a specified Gaussian model
 
@@ -206,6 +211,8 @@ class MultivariateGaussian:
         inv_cov = np.linalg.inv(cov)
         sum_on_rows = 0
         for i in X:
-            sum_on_rows += np.dot(np.dot((i - mu).transpose(), inv_cov), (i - mu))
+            sum_on_rows += np.dot(np.dot((i - mu).transpose(), inv_cov),
+                                  (i - mu))
         sum_on_rows *= 0.5
-        return -m * d / 2 * np.log(1 / (2 * np.pi)) - (m / 2) * np.log(det_cov) - sum_on_rows
+        return -m * d / 2 * np.log(2 * np.pi) - (m / 2) * np.log(
+            det_cov) - sum_on_rows
