@@ -13,6 +13,13 @@ pio.templates.default = "simple_white"
 
 
 def convert_grade_to_categorical(data):
+    """
+    This function categorize the grade feature, into 4 categories
+    1-3 : bad
+    4-7 : average
+    8-10 : good
+    11-13 : excellent
+    """
     data.loc[(data['grade'] > 0) & (data['grade'] < 4), 'grade'] = 1
     data.loc[(data['grade'] > 3) & (data['grade'] < 8), 'grade'] = 2
     data.loc[(data['grade'] > 7) & (data['grade'] < 11), 'grade'] = 3
@@ -20,31 +27,62 @@ def convert_grade_to_categorical(data):
 
 
 def keep_last_selling_date(data):
+    """
+    This function removes duplicates of houses which have the same id and
+    keeps only the data of the last selling
+    """
     data.sort_values(by='date', ascending=False)
     data.drop_duplicates(subset='id', keep='first', inplace=True)
 
 
 def compute_relative_living_and_lot_size(data):
+    """
+    This function computes the proportional sizes of a specific house relative
+    to its 15 neighbors
+    """
     data['sqft_living15'] = data['sqft_living'] / data['sqft_living15']
     data['sqft_lot15'] = data['sqft_lot'] / data['sqft_lot15']
     data.rename(columns={'sqft_living15': 'relative_living_to_area',
                          'sqft_lot15': 'relative_lot_to_area'}, inplace=True)
 
 
+def remove_rows_containing_invalid_zeros(data):
+    """
+    This function clears invalid values.
+    """
+    data.drop(data[(data.bedrooms <= 0) | (data.bathrooms <= 0) |
+                   (data.sqft_living <= 0) | (data.sqft_lot <= 0) |
+                   (data.floors <= 0) | (data.condition <= 0) |
+                   (data.grade <= 0) | (data.sqft_above <= 0) |
+                   (data.yr_built <= 0) | (data.price <= 0) | (
+                           data.sqft_lot15 <= 0) |
+                   (data.sqft_living15 <= 0)].index,
+              inplace=True)
+    data.dropna(inplace=True)
+
+
+def last_year_of_renovation(data):
+    data['last_year'] = data[['yr_built', 'yr_renovated']].max(axis=1)
+    data.drop(labels=['yr_built', 'yr_renovated'], axis=1, inplace=True)
+
+
+
 def filter_data(data):
-    # clean samples with unrealistic values
-    data = data.drop(data[(data.bedrooms <= 0) | (data.bathrooms <= 0) |
-                          (data.sqft_living <= 0) | (data.sqft_lot <= 0) |
-                          (data.floors <= 0) | (data.condition <= 0) |
-                          (data.grade <= 0) | (data.sqft_above <= 0) |
-                          (data.yr_built <= 0) | (
-                                  data.price <= 0)].index)
+    """
+    This function is preprocessing the data.
+    """
+    # clean samples with unrealistic values  - zeros in boxes that should
+    # contain values larger than 0
+    remove_rows_containing_invalid_zeros(data)
 
     # categorize grade
     convert_grade_to_categorical(data)
 
     # sort by date and remove duplicates
     keep_last_selling_date(data)
+
+    # keep the last year in which the house was built or renovated
+    last_year_of_renovation(data)
 
     # change the sqft_living to the relative size to the area
     compute_relative_living_and_lot_size(data)
@@ -53,8 +91,7 @@ def filter_data(data):
     y = data['price']
 
     # remove unnecessary columns
-    data = data.drop(labels=['price', 'date', 'id', 'zipcode'], axis=1)
-    data.dropna()
+    data.drop(labels=['price', 'date', 'id', 'zipcode'], axis=1, inplace=True)
 
     return data, y
 
@@ -72,8 +109,8 @@ def load_data(filename: str):
     Design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    X = pd.read_csv(filename)  # converts csv to datafram
-    return filter_data(X)
+    X = pd.read_csv(filename)  # converts csv to dataframe
+    return filter_data(X)  # returns clean dataframe
 
 
 def compute_pearson_correlation(data, response):
@@ -106,20 +143,15 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series,
     """
     # compute pearson correlation
     p_corr = compute_pearson_correlation(X, y)
-    # for feature in p_corr:
-    #     # go.Figure([go.Scatter(x=list(X[feature]), y=list(y), mode='markers')],
-    #     #           layout=go.Layout(
-    #     #               title=fr"Pearson Correlation - {p_corr[feature]}",
-    #     #               xaxis_title=fr"feature {feature}",
-    #     #               yaxis_title=r"house price")).show()
-    #     fig = go.Figure()
-    #     fig.add_traces(
-    #         [go.Scatter(x=list(X[feature]), y=list(y), mode='markers')])
-    #     fig.update_layout(title=fr"Pearson Correlation - {p_corr[feature]}",
-    #                       xaxis_title=fr"feature {feature}",
-    #                       yaxis_title=r"house price")
-    #     fig.show()
-    #     fig.write_image(output_path + fr"/{feature}" + ".png")
+    for feature in p_corr:
+        fig = go.Figure()
+        fig.add_traces(
+            [go.Scatter(x=list(X[feature]), y=list(y), mode='markers')])
+        fig.update_layout(title=fr"Pearson Correlation - {p_corr[feature]}",
+                          xaxis_title=fr"feature {feature}",
+                          yaxis_title=r"house price")
+        fig.show()
+        fig.write_image(output_path + fr"/{feature}" + ".png")
 
 
 if __name__ == '__main__':
@@ -127,12 +159,10 @@ if __name__ == '__main__':
     # Question 1 - Load and preprocessing of housing prices dataset
     path = r"/Users/talheldenberg/IML.HUJI/datasets/house_prices.csv"
     X, y = load_data(path)
-    feature_evaluation(X, y, "/Users/talheldenberg/Desktop/try1")
-    train_x, train_y, test_x, test_y = split_train_test(X, y , 0.75)
-
 
     # Question 2 - Feature evaluation with respect to response
-    raise NotImplementedError()
+    feature_evaluation(X, y, "/Users/talheldenberg/Desktop/try1")
+    train_x, train_y, test_x, test_y = split_train_test(X, y, 0.75)
 
     # Question 3 - Split samples into training- and testing sets.
     raise NotImplementedError()

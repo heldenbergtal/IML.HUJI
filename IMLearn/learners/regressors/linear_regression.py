@@ -38,6 +38,10 @@ class LinearRegression(BaseEstimator):
         """
         Fit Least Squares model to given samples
 
+        #my notes - We want to minimize the square error -
+        the principle of learning is ERM
+        The algorithm used to minimize RSS is by SVM decomposition
+
         Parameters
         ----------
         X : ndarray of shape (n_samples, n_features)
@@ -50,8 +54,14 @@ class LinearRegression(BaseEstimator):
         -----
         Fits model with or without an intercept depending on value of `self.include_intercept_`
         """
+        # when there is an intercept included, to make the equation linear
+        # (not affine) we add a zero-th coordinate with value 1
         if self.include_intercept_:
             X = np.insert(X, 0, np.ones(np.shape(X)[0], axis=1))
+        # pinv X- Compute the (Moore-Penrose) pseudo-inverse of a matrix.
+        # Calculate the generalized inverse of a matrix using its
+        # singular-value decomposition (SVD) and including all
+        # large singular values.
         self.coefs_ = np.linalg.pinv(X) @ y
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
@@ -68,8 +78,14 @@ class LinearRegression(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
+
+        # we get samples and using the model we found (w hat) the result
+        # is calculated
+        # checks the intercept so the dimensions of the multiplication would
+        # be ok
         if self.include_intercept_:
             X = np.insert(X, 0, np.ones(np.shape(X)[0], axis=1))
+        # X multiply w hat = y
         return X @ self.coefs_
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
@@ -89,4 +105,5 @@ class LinearRegression(BaseEstimator):
         loss : float
             Performance under MSE loss function
         """
+        # using the function I have implemented
         return mean_square_error(self.predict(X), y)
