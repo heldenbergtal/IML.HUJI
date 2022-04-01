@@ -12,20 +12,6 @@ from IMLearn.utils.utils import split_train_test
 pio.templates.default = "simple_white"
 
 
-def convert_grade_to_categorical(data):
-    """
-    This function categorize the grade feature, into 4 categories
-    1-3 : bad
-    4-7 : average
-    8-10 : good
-    11-13 : excellent
-    """
-    data.loc[(data['grade'] > 0) & (data['grade'] < 4), 'grade'] = 1
-    data.loc[(data['grade'] > 3) & (data['grade'] < 8), 'grade'] = 2
-    data.loc[(data['grade'] > 7) & (data['grade'] < 11), 'grade'] = 3
-    data.loc[(data['grade'] > 10) & (data['grade'] < 14), 'grade'] = 4
-
-
 def keep_last_selling_date(data):
     """
     This function removes duplicates of houses which have the same id and
@@ -35,36 +21,26 @@ def keep_last_selling_date(data):
     data.drop_duplicates(subset='id', keep='first', inplace=True)
 
 
-def compute_relative_living_and_lot_size(data):
-    """
-    This function computes the proportional sizes of a specific house relative
-    to its 15 neighbors
-    """
-    data['sqft_living15'] = data['sqft_living'] / data['sqft_living15']
-    data['sqft_lot15'] = data['sqft_lot'] / data['sqft_lot15']
-    data.rename(columns={'sqft_living15': 'relative_living_to_area',
-                         'sqft_lot15': 'relative_lot_to_area'}, inplace=True)
-
-
-def remove_rows_containing_invalid_zeros(data):
+def remove_rows_containing_invalid_values(data):
     """
     This function clears invalid values.
     """
     data.drop(data[(data.bedrooms <= 0) | (data.bathrooms <= 0) |
                    (data.sqft_living <= 0) | (data.sqft_lot <= 0) |
                    (data.floors <= 0) | (data.condition <= 0) |
-                   (data.grade <= 0) | (data.sqft_above <= 0) |
+                   (data.sqft_above <= 0) |
                    (data.yr_built <= 0) | (data.price <= 0) | (
                            data.sqft_lot15 <= 0) |
                    (data.sqft_living15 <= 0)].index,
               inplace=True)
+
+    data = data[data["grade"].isin(range(1, 14))]
+    data = data[data["waterfront"].isin([0, 1])]
+    data = data[data["view"].isin(range(0, 5))]
+    data = data[data["condition"].isin(range(1, 5))]
+
     data.dropna(inplace=True)
-
-
-def last_year_of_renovation(data):
-    data['last_year'] = data[['yr_built', 'yr_renovated']].max(axis=1)
-    data.drop(labels=['yr_built', 'yr_renovated'], axis=1, inplace=True)
-
+    return data
 
 
 def filter_data(data):
@@ -73,26 +49,24 @@ def filter_data(data):
     """
     # clean samples with unrealistic values  - zeros in boxes that should
     # contain values larger than 0
-    remove_rows_containing_invalid_zeros(data)
+    data = remove_rows_containing_invalid_values(data)
 
-    # categorize grade
-    convert_grade_to_categorical(data)
+    # normalize the year of built
+    min_year_to_remove = data['yr_built'].min()
+    data['yr_built'] = data['yr_built'] - min_year_to_remove + 1
 
     # sort by date and remove duplicates
     keep_last_selling_date(data)
 
-    # keep the last year in which the house was built or renovated
-    last_year_of_renovation(data)
-
-    # change the sqft_living to the relative size to the area
-    compute_relative_living_and_lot_size(data)
+    # encode these categories in what is known as dummy variables or one-hot encoding
+    data = pd.get_dummies(data, columns=['zipcode'], prefix='zipcode_')
 
     # split label vector from samples space
     y = data['price']
 
     # remove unnecessary columns
-    data.drop(labels=['price', 'date', 'id', 'zipcode'], axis=1, inplace=True)
-
+    data.drop(labels=['price', 'date', 'id', 'lat', 'long'], axis=1,
+              inplace=True)
     return data, y
 
 
@@ -109,7 +83,7 @@ def load_data(filename: str):
     Design matrix and response vector (prices) - either as a single
     DataFrame or a Tuple[DataFrame, Series]
     """
-    X = pd.read_csv(filename)  # converts csv to dataframe
+    X = pd.read_csv(filename).drop_duplicates()  # converts csv to dataframe
     return filter_data(X)  # returns clean dataframe
 
 
@@ -117,9 +91,10 @@ def compute_pearson_correlation(data, response):
     p_by_feature = dict()
     std_of_X = data.std()  # series of std by col (features)
     std_of_y = response.std()
-    for i in range(np.shape(X)[1]):
-        p_by_feature[data.columns.values[i]] = data.iloc[:, i].cov(
-            response) / (std_of_y * std_of_X[i])
+    for feature in data:
+        if "zipcode" not in feature:
+            p_by_feature[feature] = data[feature].cov(response) \
+                                    / (std_of_y * std_of_X[feature])
     return p_by_feature
 
 
@@ -162,10 +137,9 @@ if __name__ == '__main__':
 
     # Question 2 - Feature evaluation with respect to response
     feature_evaluation(X, y, "/Users/talheldenberg/Desktop/try1")
-    train_x, train_y, test_x, test_y = split_train_test(X, y, 0.75)
 
     # Question 3 - Split samples into training- and testing sets.
-    raise NotImplementedError()
+    train_x, train_y, test_x, test_y = split_train_test(X, y, 0.75)
 
     # Question 4 - Fit model over increasing percentages of the overall training data
     # For every percentage p in 10%, 11%, ..., 100%, repeat the following 10 times:
@@ -174,4 +148,46 @@ if __name__ == '__main__':
     #   3) Test fitted model over test set
     #   4) Store average and variance of loss over test set
     # Then plot average loss as function of training size with error ribbon of size (mean-2*std, mean+2*std)
-    raise NotImplementedError()
+
+    w_hat = LinearRegression()
+    avg = dict()
+    std = dict()
+    for i in range(10, 101):
+        y_hat_mse = np.empty(10)
+
+        for j in range(10):
+            p_x_train, p_y_train, _, _ = split_train_test(train_x,
+                                                          train_y,
+                                                          i / 100)
+
+            w_hat._fit(p_x_train.to_numpy(), p_y_train.to_numpy())
+
+            y_hat_mse[j] = w_hat._loss(test_x.to_numpy(), test_y.to_numpy())
+        avg[f"{i / 100}"] = np.mean(y_hat_mse)
+        std[f"{i / 100}"] = np.std(y_hat_mse)
+
+    x_axis = np.array(list(avg.keys()))
+    y_axis = np.array(list(avg.values()))
+    double_std_np = 2 * np.array(list(std.values()))
+
+    fig_mse = go.Figure()
+    fig_mse.add_traces(
+        [go.Scatter(x=x_axis, y=(y_axis + double_std_np), mode='lines',
+                    marker=dict(color='rgb(204, 221, 255)'),
+                    showlegend=True,
+                    fillcolor='rgb(204, 221, 255) ',
+                    name="confidence interval"),
+         go.Scatter(x=x_axis, y=(y_axis - double_std_np), mode='lines',
+                    marker=dict(color='rgb(204, 221, 255)'),
+                    showlegend=False, fill='tonexty',
+                    fillcolor='rgb(204, 221, 255) ',
+                    name="confidence interval")])
+    fig_mse.add_traces([go.Scatter(x=x_axis, y=y_axis, mode="lines",
+                                   marker=dict(color=' rgb(0,48, 153) '),
+                                   name="avg mse")])
+    fig_mse.update_layout(
+        title="Loss as function of training wrapped in confidence interval",
+        xaxis=dict(title="Percentage of Training Set"),
+        yaxis=dict(title="MSE"))
+
+    fig_mse.show()

@@ -34,7 +34,7 @@ def split_train_test(X: pd.DataFrame, y: pd.Series,
         Responses of test samples
 
     """
-    X['responses'] = y
+    X.insert(0, "responses", y, True)
     train_sample = X.sample(frac=train_proportion)
     test_sample = X.drop(train_sample.index)
     train_y = train_sample['responses']

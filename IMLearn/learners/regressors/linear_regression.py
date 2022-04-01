@@ -57,7 +57,7 @@ class LinearRegression(BaseEstimator):
         # when there is an intercept included, to make the equation linear
         # (not affine) we add a zero-th coordinate with value 1
         if self.include_intercept_:
-            X = np.insert(X, 0, np.ones(np.shape(X)[0], axis=1))
+            X = np.insert(X, 0, np.ones(np.shape(X)[0]), axis=1)
         # pinv X- Compute the (Moore-Penrose) pseudo-inverse of a matrix.
         # Calculate the generalized inverse of a matrix using its
         # singular-value decomposition (SVD) and including all
@@ -84,7 +84,8 @@ class LinearRegression(BaseEstimator):
         # checks the intercept so the dimensions of the multiplication would
         # be ok
         if self.include_intercept_:
-            X = np.insert(X, 0, np.ones(np.shape(X)[0], axis=1))
+            # = np.insert(X, 0, np.ones(np.shape(X)[0]), axis=1)
+            return (X @ self.coefs_[1:]) + self.coefs_[0]
         # X multiply w hat = y
         return X @ self.coefs_
 
@@ -106,4 +107,4 @@ class LinearRegression(BaseEstimator):
             Performance under MSE loss function
         """
         # using the function I have implemented
-        return mean_square_error(self.predict(X), y)
+        return mean_square_error(self._predict(X), y)
