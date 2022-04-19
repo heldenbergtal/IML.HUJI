@@ -132,11 +132,11 @@ def feature_evaluation(X: pd.DataFrame, y: pd.Series,
 if __name__ == '__main__':
     np.random.seed(0)
     # Question 1 - Load and preprocessing of housing prices dataset
-    path = r"/Users/talheldenberg/IML.HUJI/datasets/house_prices.csv"
+    path = r"house_prices.csv"
     X, y = load_data(path)
 
     # Question 2 - Feature evaluation with respect to response
-    feature_evaluation(X, y, "/Users/talheldenberg/Desktop/try1")
+    feature_evaluation(X, y)
 
     # Question 3 - Split samples into training- and testing sets.
     train_x, train_y, test_x, test_y = split_train_test(X, y, 0.75)

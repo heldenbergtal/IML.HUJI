@@ -1,11 +1,15 @@
 from typing import NoReturn
 from ...base import BaseEstimator
 import numpy as np
+from numpy.linalg import det, inv
+from IMLearn.metrics.loss_functions import misclassification_error
+
 
 class GaussianNaiveBayes(BaseEstimator):
     """
     Gaussian Naive-Bayes classifier
     """
+
     def __init__(self):
         """
         Instantiate a Gaussian Naive Bayes classifier
@@ -39,7 +43,22 @@ class GaussianNaiveBayes(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        self.classes_ = np.unique(y)
+        self.pi_ = np.array([])
+        m = len(y)
+        for k in range(len(self.classes_)):
+            xk = X[y == k]
+            self.pi_ = np.append(self.pi_, xk.shape[0] / m)
+            mu_k = np.mean(xk, axis=0)
+            if self.mu_ is None:
+                self.mu_ = mu_k
+            else:
+                self.mu_ = np.vstack((self.mu_, mu_k))
+            var = np.var(xk, axis=0)
+            if self.vars_ is None:
+                self.vars_ = var
+            else:
+                self.vars_ = np.vstack((self.vars_, var))
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -55,7 +74,12 @@ class GaussianNaiveBayes(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        likelihoods = self.likelihood(X)
+        y_pred = np.array([])
+        for sample in likelihoods:
+            label = np.argmax(sample)
+            y_pred = np.append(y_pred, label)
+        return y_pred
 
     def likelihood(self, X: np.ndarray) -> np.ndarray:
         """
@@ -73,9 +97,37 @@ class GaussianNaiveBayes(BaseEstimator):
 
         """
         if not self.fitted_:
-            raise ValueError("Estimator must first be fitted before calling `likelihood` function")
-
-        raise NotImplementedError()
+            raise ValueError(
+                "Estimator must first be fitted before calling `likelihood` function")
+        d = X.shape[1]
+        likelihoods = None
+        for sample in X:
+            each_label_likelihood = np.array([])
+            for k in range(len(self.classes_)):
+                var_mat = np.diag(self.vars_[int(k)])
+                compute = ((sample - self.mu_[int(k)]).transpose()) @ inv(
+                    var_mat) @ (sample - self.mu_[int(k)])
+                each_label_likelihood = np.append(each_label_likelihood,
+                                                  ((1 / np.sqrt(
+                                                      ((2 * np.pi) ** d) * det(
+                                                          var_mat))) * np.exp(
+                                                      -0.5 * compute)) *
+                                                  self.pi_[int(k)])
+            likelihoods = each_label_likelihood if likelihoods is None else np.vstack(
+                (likelihoods, each_label_likelihood))
+        return likelihoods
+        # likelihoods = None
+        # for sample in X:
+        #     each_label_likelihood = np.array([])
+        #     for k in self.classes_:
+        #         compute = 1
+        #         for feature in range(X.shape[1]):
+        #             compute *= (1/np.sqrt(2 * np.pi * self.vars_[int(k) ,feature])) * np.exp(-0.5 * ((sample[feature] - self.mu_[int(k),feature]) / self.vars_[int(k),feature])**2)
+        #         compute *= self.pi_[int(k)]
+        #         each_label_likelihood = np.append(each_label_likelihood, compute)
+        #     likelihoods = each_label_likelihood if likelihoods is None else np.vstack(
+        #         (likelihoods, each_label_likelihood))
+        # return likelihoods
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -94,4 +146,5 @@ class GaussianNaiveBayes(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        y_pred = self.predict(X)
+        return misclassification_error(y, y_pred)

@@ -27,8 +27,13 @@ def load_data(filename: str) -> pd.DataFrame:
 
     # range of possible dates
     data = data[data["Year"] < 2023]
-    data = data[data["Month"].isin(range(1, 13))]
-    data = data[data["Day"].isin(range(1, 32))]
+    # data = data[data["Month"].isin(range(1, 13))]
+    # data = data[data["Day"].isin(range(1, 32))]
+    data = data.loc[((data['Day'].isin(range(1, 31))) & (
+        data['Month'].isin([4, 6, 9, 11]))) | ((data["Month"] == 2) & (
+        data['Day'].isin(range(1, 29)))) |
+                    ((data['Day'].isin(range(1, 32))) & (
+                        data['Month'].isin([1, 3, 5, 7, 8, 10, 12])))]
     data = data[(data["Temp"] < 55) & (data["Temp"] > -25)]
 
     # day of the year new column
@@ -40,7 +45,7 @@ def load_data(filename: str) -> pd.DataFrame:
 if __name__ == '__main__':
     np.random.seed(0)
     # Question 1 - Load and preprocessing of city temperature dataset
-    path = "/Users/talheldenberg/IML.HUJI/datasets/City_Temperature.csv"
+    path = "City_Temperature.csv"
     X = load_data(path)
     y = X['Temp']
 
