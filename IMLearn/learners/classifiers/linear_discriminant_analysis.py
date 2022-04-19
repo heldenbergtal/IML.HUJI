@@ -58,7 +58,8 @@ class LDA(BaseEstimator):
             idx = np.where(y == k)[0]
             xk = np.array(X[idx])
             mu_k = np.mean(xk, axis=0)
-            self.mu_ = mu_k if self.mu_ is None else np.vstack((self.mu_, mu_k))
+            self.mu_ = mu_k if self.mu_ is None else np.vstack(
+                (self.mu_, mu_k))
             cov = np.zeros((X.shape[1], X.shape[1]))
             for xi in xk:
                 cov += np.outer(xi - mu_k, xi - mu_k)
@@ -112,17 +113,19 @@ class LDA(BaseEstimator):
         for sample in X:
             each_label_likelihood = np.array([])
             for k in self.classes_:
-                compute = ((sample - self.mu_[int(k)]).transpose()) @ self._cov_inv @ (sample - self.mu_[int(k)])
+                compute = ((sample - self.mu_[
+                    int(k)]).transpose()) @ self._cov_inv @ (
+                                      sample - self.mu_[int(k)])
                 each_label_likelihood = np.append(each_label_likelihood,
-                                                  ((1/np.sqrt(((2*np.pi)**d) * det_cov))*np.exp(-0.5 * compute)) * self.pi_[int(k)])
+                                                  ((1 / np.sqrt(((
+                                      2 * np.pi) ** d) * det_cov)) * np.exp(
+                                                      -0.5 * compute)) *
+                                                  self.pi_[int(k)])
             if likelihoods is None:
                 likelihoods = each_label_likelihood
             else:
                 likelihoods = np.vstack((likelihoods, each_label_likelihood))
         return likelihoods
-
-
-
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """

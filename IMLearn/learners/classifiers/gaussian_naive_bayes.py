@@ -116,18 +116,7 @@ class GaussianNaiveBayes(BaseEstimator):
             likelihoods = each_label_likelihood if likelihoods is None else np.vstack(
                 (likelihoods, each_label_likelihood))
         return likelihoods
-        # likelihoods = None
-        # for sample in X:
-        #     each_label_likelihood = np.array([])
-        #     for k in self.classes_:
-        #         compute = 1
-        #         for feature in range(X.shape[1]):
-        #             compute *= (1/np.sqrt(2 * np.pi * self.vars_[int(k) ,feature])) * np.exp(-0.5 * ((sample[feature] - self.mu_[int(k),feature]) / self.vars_[int(k),feature])**2)
-        #         compute *= self.pi_[int(k)]
-        #         each_label_likelihood = np.append(each_label_likelihood, compute)
-        #     likelihoods = each_label_likelihood if likelihoods is None else np.vstack(
-        #         (likelihoods, each_label_likelihood))
-        # return likelihoods
+
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
