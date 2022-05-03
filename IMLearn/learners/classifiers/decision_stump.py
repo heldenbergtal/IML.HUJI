@@ -19,7 +19,8 @@ class DecisionStump(BaseEstimator):
         The index of the feature by which to split the data
 
     self.sign_: int
-        The label to predict for samples where the value of the j'th feature is about the threshold
+        The label to predict for samples where the value of the j'th feature is
+        about the threshold
     """
 
     def __init__(self) -> DecisionStump:
@@ -41,7 +42,15 @@ class DecisionStump(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        for j in range(X.shape[1]):
+            best = np.infty
+            for sign in (-1, 1):
+                f_t = self._find_threshold(X[:, j], y, sign)
+                if f_t[1] < best:
+                    best = f_t[1]
+                    self.j_ = j
+                    self.threshold_ = f_t[0]
+                    self.sign_ = sign
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -65,7 +74,9 @@ class DecisionStump(BaseEstimator):
         Feature values strictly below threshold are predicted as `-sign` whereas values which equal
         to or above the threshold are predicted as `sign`
         """
-        raise NotImplementedError()
+        return np.array(
+            [self.sign_ if X[i][self.j_] >= self.threshold_ else -self.sign_
+             for i in X.shape[0]])
 
     def _find_threshold(self, values: np.ndarray, labels: np.ndarray,
                         sign: int) -> Tuple[float, float]:
@@ -102,19 +113,18 @@ class DecisionStump(BaseEstimator):
         values = values[idx]  # sorts array in ascending order
         labels = labels[idx]  # match labels to sorted values
         l_pred = np.array([sign for _ in range(len(values))])
-        min_er = (misclassification_error(labels, l_pred), values[0] - 1)
+        min_er = (values[0] - 1, misclassification_error(labels, l_pred))
         for i in range(len(values) - 1):
             thresh = (values[i] + values[
                 i + 1]) / 2  # finds the middle of two points
             l_pred = np.array([sign if values[i] > thresh else -sign for _ in
                                range(len(values))])
-            if misclassification_error(labels, l_pred) > min_er[0]:
-                min_er = (misclassification_error(labels, l_pred), thresh)
+            if misclassification_error(labels, l_pred) > min_er[1]:
+                min_er = (thresh, misclassification_error(labels, l_pred))
         l_pred = np.array([-sign for _ in range(len(values))])
-        if misclassification_error(labels, l_pred) > min_er[0]:
-            min_er = (
-                misclassification_error(labels, l_pred),
-                values[len(values) - 1])
+        if misclassification_error(labels, l_pred) > min_er[1]:
+            min_er = (values[len(values) - 1],
+                      misclassification_error(labels, l_pred))
         return min_er
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
@@ -134,4 +144,4 @@ class DecisionStump(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        raise NotImplementedError()
+        return misclassification_error(y, self.predict(X))
