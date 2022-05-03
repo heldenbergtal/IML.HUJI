@@ -72,10 +72,12 @@ def compare_gaussian_classifiers():
         # Load dataset
         X, y = load_dataset("../datasets/{}".format(f))
 
+
         # Fit models and predict over training set
         gnb = GaussianNaiveBayes()
         gnb.fit(X, y)
         y_gnb_pred = gnb.predict(X)
+
 
         lda = LDA()
         lda.fit(X, y)

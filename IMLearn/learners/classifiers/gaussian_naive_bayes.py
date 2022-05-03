@@ -54,7 +54,7 @@ class GaussianNaiveBayes(BaseEstimator):
                 self.mu_ = mu_k
             else:
                 self.mu_ = np.vstack((self.mu_, mu_k))
-            var = np.var(xk, axis=0)
+            var = np.var(xk, ddof=1, axis=0)
             if self.vars_ is None:
                 self.vars_ = var
             else:
