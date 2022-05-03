@@ -1,5 +1,5 @@
 import numpy as np
-from ...base import BaseEstimator
+from ..base import BaseEstimator
 from typing import Callable, NoReturn
 from IMLearn.metrics.loss_functions import misclassification_error
 
@@ -58,16 +58,21 @@ class AdaBoost(BaseEstimator):
             self.models_.append(model)
             y_pred = model.predict(X)
             epsilon = np.sum((np.sign(y) != np.sign(y_pred)) * self.D_)
-            self.models_.append(0.5 * np.log(1 / epsilon - 1))
-            self.D_ = self.D_ * np.array(
-                [np.exp(-y * self.models_[-1] * y_pred)])
+            print(epsilon)
+            self.weights_.append(0.5 * np.log((1 / epsilon) - 1))
+            self.D_ = self.D_ * np.array([np.exp(-y * self.models_[-1].predict(X) * y_pred)])[0]
             self.D_ /= np.sum(self.D_)
+        print(self.weights_)
 
-    def predict_by_models(self, X, models):
+    def predict_by_models(self, X, models, weights):
         y_pred = np.zeros(X.shape[0])
-        for i, model in enumerate(self.models_):
-            y_model_pred = model.predict(X)
-            y_pred += self.weights_ * y_model_pred
+        print("pred: ", y_pred, "\n")
+        for i, model in enumerate(models):
+            y_model_pred = model._predict(X)
+            print("model pred: ", len(y_model_pred), "\n")
+            print("weights: ", len(self.weights_), "\n")
+            y_pred += weights[i] * y_model_pred
+            print("pref updated: ", y_pred, "\n")
         return np.sign(y_pred)
 
     def _predict(self, X):
@@ -84,7 +89,7 @@ class AdaBoost(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        return self.predict_by_models(X, self.models_)
+        return self.predict_by_models(X, self.models_, self.weights_)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -122,7 +127,7 @@ class AdaBoost(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        return self.predict_by_models(X, self.models_[:T])
+        return self.predict_by_models(X, self.models_[:T], self.weights_[:T])
 
     def partial_loss(self, X: np.ndarray, y: np.ndarray, T: int) -> float:
         """

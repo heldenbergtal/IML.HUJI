@@ -76,7 +76,7 @@ class DecisionStump(BaseEstimator):
         """
         return np.array(
             [self.sign_ if X[i][self.j_] >= self.threshold_ else -self.sign_
-             for i in X.shape[0]])
+             for i in range(X.shape[0])])
 
     def _find_threshold(self, values: np.ndarray, labels: np.ndarray,
                         sign: int) -> Tuple[float, float]:
@@ -144,4 +144,4 @@ class DecisionStump(BaseEstimator):
         loss : float
             Performance under missclassification loss function
         """
-        return misclassification_error(y, self.predict(X))
+        return misclassification_error(y, self._predict(X))
