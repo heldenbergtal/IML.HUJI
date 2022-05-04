@@ -56,11 +56,15 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000,
     fig_q1 = go.Figure()
     x_axis = [i for i in range(1, n_learners + 1)]
     fig_q1.add_trace(go.Scatter(x=x_axis, y=training_error,
-                                mode='lines',
+                                mode='markers+lines',
                                 name='training error'))
     fig_q1.add_trace(go.Scatter(x=x_axis, y=test_error,
-                                mode='lines',
+                                mode='markers+lines',
                                 name='test errors'))
+    fig_q1.update_layout(
+        title="Errors as a Function of the Number Of Fitted Leareners",
+        xaxis_title="number of learners",
+        yaxis_title="misclassification errors", width=1000, height=600)
     fig_q1.show()
 
     # Question 2: Plotting decision surfaces
@@ -79,4 +83,7 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000,
 
 if __name__ == '__main__':
     np.random.seed(0)
-    fit_and_evaluate_adaboost(0, n_learners=25, train_size=200, test_size=25)
+    fit_and_evaluate_adaboost(0)
+
+
+
