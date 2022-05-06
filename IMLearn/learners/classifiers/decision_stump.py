@@ -43,18 +43,13 @@ class DecisionStump(BaseEstimator):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        class_errors = []  # keep all errors
         best = np.infty
         for j in range(X.shape[1]):
             for sign in self.SIGN:
                 threshold, thresh_err = self._find_threshold(X[:, j], y, sign)
-                # class_errors.append((threshold, sign, j,
-                #                      thresh_err))
                 if (thresh_err < best):
                     self.threshold_, self.sign_, self.j_, best = threshold, sign, j, thresh_err
-        # self.threshold_, self.sign_, self.j_, _ = min(class_errors,
-        #                                               key=lambda err: err[
-        #                                                   -1])
+
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -113,17 +108,18 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
         which equal to or above the threshold are predicted as `sign`
         """
-        sorted_val = values[values.argsort()]  # sorts array in ascending order
+        idx = values.argsort()
+        sorted_val = values[idx]  # sorts array in ascending order
         class_err = []  # keeps all errors
+        optional_threholds= np.concatenate([[-np.inf], (sorted_val[1:]+sorted_val[: -1]) / 2, [np.inf]])
 
-        for thresh in sorted_val:
-            y_pred = np.array(
-                [sign if values[j] >= thresh else -sign for j in
-                 range(len(values))])
+        for thresh in optional_threholds:
+            y_pred = np.where(values >= thresh, sign, -sign)
             weighted_misclassification_error = self._weighted_misclassification_error(
                 labels, y_pred)
             class_err.append((thresh, weighted_misclassification_error))
         return min(class_err, key=lambda err: err[1])  # return the threshold that causes the min error
+        # return final_thresh, min_err
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """

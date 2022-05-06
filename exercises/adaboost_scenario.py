@@ -5,6 +5,7 @@ from IMLearn.learners.classifiers import DecisionStump
 from utils import *
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from IMLearn.metrics.loss_functions import accuracy
 
 
 def generate_data(n: int, noise_ratio: float) -> Tuple[np.ndarray, np.ndarray]:
@@ -69,21 +70,75 @@ def fit_and_evaluate_adaboost(noise, n_learners=250, train_size=5000,
 
     # Question 2: Plotting decision surfaces
     T = [5, 50, 100, 250]
+    errors = []
     lims = np.array([np.r_[train_X, test_X].min(axis=0),
                      np.r_[train_X, test_X].max(axis=0)]).T + np.array(
         [-.1, .1])
-    print(lims[0])
+    symbols = np.array(["circle", "x"])
+    y = np.where(test_y == 1, 1, 0)
+
     for t in T:
-        predict = ada_boost.partial_predict(test_X, t)
-        decision_surface(predict=predict, xrange=lims[0], yrange=lims[1]).show()
+        fig_q2 = go.Figure()
+        fig_q2.add_traces([decision_surface(
+            lambda samples: ada_boost.partial_predict(samples, t), lims[0],
+            lims[1], showscale=False),
+            go.Scatter(x=test_X[:, 0], y=test_X[:, 1], mode="markers",
+                       showlegend=False,
+                       marker=dict(color=y, symbol=symbols[y],
+                                   colorscale=[custom[0], custom[-1]],
+                                   line=dict(color="black", width=1)))])
+        fig_q2.update_layout(title=f"Decision Surface AdaBoost {t} Iterations",
+                             xaxis_title="feature 1", yaxis_title="feature 2")
+        fig_q2.show()
+
+        errors.append(ada_boost.partial_loss(test_X, test_y, t))
 
     # Question 3: Decision surface of best performing ensemble
-    raise NotImplementedError()
+
+    argmin_idx = T[np.argmin(errors)]
+    acr = ada_boost.partial_predict(test_X, argmin_idx)
+
+    fig_q3 = go.Figure()
+    fig_q3.add_traces([decision_surface(
+        lambda samples: ada_boost.partial_predict(samples, argmin_idx), lims[0],
+        lims[1], showscale=False),
+        go.Scatter(x=test_X[:, 0], y=test_X[:, 1],
+                   mode="markers",
+                   showlegend=False,
+                   marker=dict(color=y, symbol=symbols[y],
+                               colorscale=[custom[0],
+                                           custom[-1]],
+                               line=dict(color="black",
+                                         width=1)))])
+    fig_q3.update_layout(
+        title=f"Decision Surface AdaBoost {argmin_idx} Iterations\n Accuracy: {accuracy(test_y, acr)}",
+        xaxis_title="feature 1", yaxis_title="feature 2")
+    fig_q3.show()
 
     # Question 4: Decision surface with weighted samples
-    raise NotImplementedError()
+
+    D = ada_boost.D_ / np.max(ada_boost.D_) * 15
+    y = np.where(train_y == 1, 1, 0)
+
+    fig_q4 = go.Figure()
+    fig_q4.add_traces([decision_surface(
+        lambda samples: ada_boost._predict(samples), lims[0],
+        lims[1], showscale=False)])
+    fig_q4.add_trace(
+        go.Scatter(x=train_X[:, 0], y=train_X[:, 1], mode="markers",
+                   showlegend=False,
+                   marker=dict(color=train_y, size=D, symbol=symbols[y],
+                               colorscale=[custom[0],
+                                           custom[-1]],
+                               line=dict(color="black",
+                                         width=1))))
+    fig_q4.update_layout(
+        title=f"Decision Surface AdaBoost Training Set\nwith Proportional to it's Weight",
+        xaxis_title="feature 1", yaxis_title="feature 2")
+    fig_q4.show()
 
 
 if __name__ == '__main__':
     np.random.seed(0)
-    fit_and_evaluate_adaboost(0, 3, 100, 25)
+    fit_and_evaluate_adaboost(0)
+    fit_and_evaluate_adaboost(0.4)
