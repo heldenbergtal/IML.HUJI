@@ -50,7 +50,6 @@ class DecisionStump(BaseEstimator):
                 if (thresh_err < best):
                     self.threshold_, self.sign_, self.j_, best = threshold, sign, j, thresh_err
 
-
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
         Predict responses for given samples using fitted estimator
@@ -108,18 +107,20 @@ class DecisionStump(BaseEstimator):
         For every tested threshold, values strictly below threshold are predicted as `-sign` whereas values
         which equal to or above the threshold are predicted as `sign`
         """
-        idx = values.argsort()
-        sorted_val = values[idx]  # sorts array in ascending order
-        class_err = []  # keeps all errors
-        optional_threholds= np.concatenate([[-np.inf], (sorted_val[1:]+sorted_val[: -1]) / 2, [np.inf]])
-
-        for thresh in optional_threholds:
-            y_pred = np.where(values >= thresh, sign, -sign)
-            weighted_misclassification_error = self._weighted_misclassification_error(
-                labels, y_pred)
-            class_err.append((thresh, weighted_misclassification_error))
-        return min(class_err, key=lambda err: err[1])  # return the threshold that causes the min error
-        # return final_thresh, min_err
+        idx = np.argsort(values)
+        values, labels = values[idx], labels[idx]
+        y_pred = np.array([sign] * len(values))
+        error = self._weighted_misclassification_error(labels, y_pred)
+        best_err = (-np.inf, error)
+        optional_thresholds = (values[1:] + values[: -1]) / 2
+        for i in range(len(values) - 1):
+            thresh = optional_thresholds[i]
+            y_pred[i] = -sign
+            error = error - abs(labels[i]) if y_pred[i] == np.sign(
+                labels[i]) else error + abs(labels[i])
+            if error < best_err[1]:
+                best_err = (thresh, error)
+        return best_err
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -141,6 +142,4 @@ class DecisionStump(BaseEstimator):
         return misclassification_error(y, self.predict(X))
 
     def _weighted_misclassification_error(self, y_true, y_pred):
-        return np.sum(
-            np.abs(y_true * (np.sign(y_true) != np.sign(y_pred)))) / len(
-            y_true)
+        return np.sum(np.abs(y_true * (np.sign(y_true) != y_pred)))
