@@ -1,8 +1,13 @@
 from __future__ import annotations
 from typing import NoReturn
+
+import sklearn.linear_model
+
 from ...base import BaseEstimator, BaseModule
 from ...desent_methods.gradient_descent import GradientDescent
 import numpy as np
+
+from IMLearn.metrics.loss_functions import mean_square_error
 
 
 class LassoObjective(BaseModule):
@@ -10,7 +15,8 @@ class LassoObjective(BaseModule):
     Module class of the Lasso objective
     """
 
-    def __init__(self, lam: float, nfeatures: int, include_intercept: bool = False) -> LassoObjective:
+    def __init__(self, lam: float, nfeatures: int,
+                 include_intercept: bool = False) -> LassoObjective:
         """
         Initialize a Lasso objective module
 
@@ -50,7 +56,8 @@ class LassoRegression(BaseEstimator):
     Solving Lasso regression optimization problem
     """
 
-    def __init__(self, lam: float, optimizer: GradientDescent, include_intercept: bool = False):
+    def __init__(self, lam: float, optimizer: GradientDescent,
+                 include_intercept: bool = False):
         """
         Initialize a ridge regression model
         :param lam: scalar value of regularization parameter
@@ -59,7 +66,8 @@ class LassoRegression(BaseEstimator):
         self.lam_ = lam
         self.include_intercept_ = include_intercept
         self.optimizer_ = optimizer
-        self._objective = None
+        self._objective = sklearn.linear_model.Lasso(alpha=self.lam_,
+                                                     fit_intercept=self.include_intercept_)
         self.coefs_ = None
 
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
@@ -79,7 +87,8 @@ class LassoRegression(BaseEstimator):
         Fits model using specified `self.optimizer_` passed when instantiating class and includes an intercept
         if specified by `self.include_intercept_
         """
-        raise NotImplementedError()
+        self._objective.fit(X, y)
+        self.coefs_ = self._objective.coef_
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -95,7 +104,7 @@ class LassoRegression(BaseEstimator):
         responses : ndarray of shape (n_samples, )
             Predicted responses of given samples
         """
-        raise NotImplementedError()
+        return self._objective.predict(X)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -114,4 +123,5 @@ class LassoRegression(BaseEstimator):
         loss : float
             Performance under MSE loss function
         """
-        raise NotImplementedError()
+        return mean_square_error(y, self.predict(X)) + (
+                self.lam_ * (np.linalg.norm(self.coefs_, ord=1)))
