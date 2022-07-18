@@ -24,7 +24,10 @@ class FullyConnectedLayer(BaseModule):
     include_intercept: bool
         Should layer include an intercept or not
     """
-    def __init__(self, input_dim: int, output_dim: int, activation: BaseModule = None, include_intercept: bool = True):
+
+    def __init__(self, input_dim: int, output_dim: int,
+                 activation: BaseModule = None,
+                 include_intercept: bool = True):
         """
         Initialize a module of a fully connected layer
 
@@ -47,8 +50,15 @@ class FullyConnectedLayer(BaseModule):
         ------
         Weights are randomly initialized following N(0, 1/input_dim)
         """
+        self.weights = np.random.normal(0, 1 / input_dim,
+                                        size=(input_dim + 1, output_dim)) \
+            if include_intercept else np.random.normal(0, 1 / input_dim, size=(
+        input_dim, output_dim))
         super().__init__()
-        raise NotImplementedError()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.activation = activation
+        self.include_intercept = include_intercept
 
     def compute_output(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -65,7 +75,9 @@ class FullyConnectedLayer(BaseModule):
         output: ndarray of shape (n_samples, output_dim)
             Value of function at point self.weights
         """
-        raise NotImplementedError()
+        if self.include_intercept:
+            X = np.insert(X, 0, np.ones(X.shape[0]), axis=1)
+        return self.activation.compute_output(X=X @ self.weights)
 
     def compute_jacobian(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -81,7 +93,7 @@ class FullyConnectedLayer(BaseModule):
         output: ndarray of shape (input_dim, n_samples)
             Derivative with respect to self.weights at point self.weights
         """
-        raise NotImplementedError()
+        return X.transpose()
 
 
 class ReLU(BaseModule):
@@ -103,7 +115,8 @@ class ReLU(BaseModule):
         output: ndarray of shape (n_samples, input_dim)
             Data after performing the ReLU activation function
         """
-        raise NotImplementedError()
+        X[X < 0] = 0
+        return X
 
     def compute_jacobian(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """
@@ -119,14 +132,18 @@ class ReLU(BaseModule):
         output: ndarray of shape (n_samples,)
             Element-wise derivative of ReLU with respect to given data
         """
-        raise NotImplementedError()
+        jacobian = X
+        jacobian[X > 0] = 1
+        return jacobian
 
 
 class CrossEntropyLoss(BaseModule):
     """
     Module of Cross-Entropy Loss: The Cross-Entropy between the Softmax of a sample x and e_k for a true class k
     """
-    def compute_output(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
+
+    def compute_output(self, X: np.ndarray, y: np.ndarray,
+                       **kwargs) -> np.ndarray:
         """
         Computes the Cross-Entropy over the Softmax of given data, with respect to every
 
@@ -145,9 +162,14 @@ class CrossEntropyLoss(BaseModule):
         output: ndarray of shape (n_samples,)
             cross-entropy loss value of given X and y
         """
-        raise NotImplementedError()
+        e_k = np.identity(X.shape[0]) @ y
+        ce = []
+        for i in range(X.shape[0]):
+            ce.append(CrossEntropyLoss.compute_output(softmax(X), e_k[i]))
+        return np.array(ce)
 
-    def compute_jacobian(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
+    def compute_jacobian(self, X: np.ndarray, y: np.ndarray,
+                         **kwargs) -> np.ndarray:
         """
         Computes the derivative of the cross-entropy loss function with respect to every given sample
 
@@ -164,5 +186,8 @@ class CrossEntropyLoss(BaseModule):
         output: ndarray of shape (n_samples, input_dim)
             derivative of cross-entropy loss with respect to given input
         """
-        raise NotImplementedError()
-
+        jacob = []
+        for i in range(X.shape[0]):
+            sm = softmax(X[i])
+            jacob.append((np.diag(sm) - sm @ sm.T) @ ((1/sm) * y ))
+        return np.array(jacob)
