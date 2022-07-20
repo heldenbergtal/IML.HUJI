@@ -122,28 +122,29 @@ class GradientDescent:
 
         """
         t = 1
-        avg = best = f.weights
-        best_cur_output = f.compute_output(X=X, y=y)
-
+        avg = last = f.weights
+        best = f.weights
+        best_output = f.compute_output(X=X, y=y)
         while t <= self.max_iter_:
-            w_t1 = f.weights - self.learning_rate_.lr_step(
-                t=t + 1) * f.compute_jacobian(X=X, y=y)
-            if (np.linalg.norm(f.weights - w_t1, ord=2) < self.tol_):
+            w_t1 = f.weights - self.learning_rate_.lr_step(t=t + 1) * \
+                   f.compute_jacobian(X=X, y=y)
+            delta = np.linalg.norm(f.weights - w_t1)
+            if delta < self.tol_:
                 t -= 1
                 break
             f.weights = w_t1
-            avg += w_t1
-            t1_output = f.compute_output(X=X, y=y)
-            if t1_output < best_cur_output:
-                best = w_t1
-                best_cur_output = t1_output
-            self.callback_(self, [f.weights, t1_output,
-                                  f.compute_jacobian(X=X, y=y), t,
-                                  self.learning_rate_.lr_step(t=t)])
+            avg += f.weights
+            last = f.weights
+            best = best if best_output <= f.compute_output(X=X,
+                                                           y=y) else f.weights
+            self.callback_(
+                self, [f.weights, f.compute_output(X=X, y=y),
+                       f.compute_jacobian(X=X, y=y),
+                       t, self.learning_rate_.lr_step(t=t + 1), delta])
             t += 1
 
-        if self.out_type_ == "best":
-            return best
+        if self.out_type_ == "last":
+            return last
         if self.out_type_ == "average":
-            return avg / t
-        return f.weights
+            return avg / (t if t != 0 else 1)
+        return best

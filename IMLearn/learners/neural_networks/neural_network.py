@@ -23,12 +23,16 @@ class NeuralNetwork(BaseEstimator, BaseModule):
 
     pre_activations_:
     """
+
     def __init__(self,
                  modules: List[FullyConnectedLayer],
                  loss_fn: BaseModule,
                  solver: Union[StochasticGradientDescent, GradientDescent]):
         super().__init__()
-        raise NotImplementedError()
+        self.modules_ = modules
+        self.loss_fn_ = loss_fn
+        self.solver_ = solver
+        self.pre_activations_, self.post_activations_ = [], []
 
     # region BaseEstimator implementations
     def _fit(self, X: np.ndarray, y: np.ndarray) -> NoReturn:
@@ -43,7 +47,7 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         y : ndarray of shape (n_samples, )
             Responses of input data to fit to
         """
-        raise NotImplementedError()
+        self.solver_.fit(self, X, y)
 
     def _predict(self, X: np.ndarray) -> np.ndarray:
         """
@@ -59,7 +63,7 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         responses : ndarray of shape (n_samples, )
             Predicted labels of given samples
         """
-        raise NotImplementedError()
+        return np.argmax(self.compute_prediction(X), axis=1)
 
     def _loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -78,11 +82,16 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         loss : float
             Performance under specified loss function
         """
-        raise NotImplementedError()
+        output = X
+        for layer in self.modules_:
+            output = layer.compute_output(output)
+        return float(np.mean(self.loss_fn.compute_output(X=output, y=y)))
+
     # endregion
 
     # region BaseModule implementations
-    def compute_output(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
+    def compute_output(self, X: np.ndarray, y: np.ndarray,
+                       **kwargs) -> np.ndarray:
         """
         Compute network output with respect to modules' weights given input samples
 
@@ -103,7 +112,18 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         -----
         Function stores all intermediate values in the `self.pre_activations_` and `self.post_activations_` arrays
         """
-        raise NotImplementedError()
+        self.pre_activations_ = []
+        self.post_activations_ = [X]
+        output = X
+        for layer in self.modules_:
+            self.post_activations_.append(layer.compute_output(output))
+            if layer.include_intercept:
+                output = np.insert(output, 0, np.ones(output.shape[0]), axis=1)
+            self.pre_activations_.append(output @ layer.weights)
+            output = self.post_activations_[-1]
+        # self.post_activations_.append(self.loss_fn.compute_output(X=output,
+        #                                                           y=y))
+        return np.mean(self.loss_fn_.compute_output(X=output, y=y))
 
     def compute_prediction(self, X: np.ndarray):
         """
@@ -120,9 +140,13 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         output : ndarray of shape (n_samples, n_classes)
             Network's output values prior to the call of the loss function
         """
-        raise NotImplementedError()
+        output = X
+        for layer in self.modules_:
+            output = layer.compute_output(output)
+        return output
 
-    def compute_jacobian(self, X: np.ndarray, y: np.ndarray, **kwargs) -> np.ndarray:
+    def compute_jacobian(self, X: np.ndarray, y: np.ndarray,
+                         **kwargs) -> np.ndarray:
         """
         Compute network's derivative (backward pass) according to the backpropagation algorithm.
 
@@ -143,7 +167,21 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         Function depends on values calculated in forward pass and stored in
         `self.pre_activations_` and `self.post_activations_`
         """
-        raise NotImplementedError()
+        partial_derivatives = []
+        self.compute_output(X, y)
+
+        delta_t = self.loss_fn_.compute_jacobian(X=self.post_activations_[-1], y=y)
+        for i in range(len(self.modules_) - 1, 0, -1):
+            partial_derivatives.append(delta_t.T @ self.modules_[
+                i].compute_jacobian(
+                self.post_activations_[i]).T @ (self.post_activations_[i - 1].T
+                                                ))
+            delta_t = delta_t @ self.modules_[
+                i - 1].weights @ self.modules_[i].compute_jacobian(
+                self.post_activations_[i])
+
+        return self._flatten_parameters(partial_derivatives)
+
 
     @property
     def weights(self) -> np.ndarray:
@@ -155,7 +193,8 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         weights : ndarray of shape (n_features,)
             The network's weights as a flattened vector
         """
-        return NeuralNetwork._flatten_parameters([module.weights for module in self.modules_])
+        return NeuralNetwork._flatten_parameters(
+            [module.weights for module in self.modules_])
 
     @weights.setter
     def weights(self, weights) -> None:
@@ -169,9 +208,11 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         weights : np.ndarray of shape (n_features,)
             A flat vector of weights to update the model
         """
-        non_flat_weights = NeuralNetwork._unflatten_parameters(weights, self.modules_)
+        non_flat_weights = NeuralNetwork._unflatten_parameters(weights,
+                                                               self.modules_)
         for module, weights in zip(self.modules_, non_flat_weights):
             module.weights = weights
+
     # endregion
 
     # region Internal methods
@@ -194,7 +235,8 @@ class NeuralNetwork(BaseEstimator, BaseModule):
         return np.concatenate([grad.flatten() for grad in params])
 
     @staticmethod
-    def _unflatten_parameters(flat_params: np.ndarray, modules: List[BaseModule]) -> List[np.ndarray]:
+    def _unflatten_parameters(flat_params: np.ndarray,
+                              modules: List[BaseModule]) -> List[np.ndarray]:
         """
         Performing the inverse operation of "flatten_parameters"
 
